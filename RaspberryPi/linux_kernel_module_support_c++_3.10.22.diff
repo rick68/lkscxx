@@ -1,0 +1,564 @@
+diff --git a/Makefile b/Makefile
+index 001188c..2ca4ab9 100644
+--- a/Makefile
++++ b/Makefile
+@@ -327,6 +327,7 @@ include $(srctree)/scripts/Kbuild.include
+ AS		= $(CROSS_COMPILE)as
+ LD		= $(CROSS_COMPILE)ld
+ CC		= $(CROSS_COMPILE)gcc
++CXX		= $(CROSS_COMPILE)g++
+ CPP		= $(CC) -E
+ AR		= $(CROSS_COMPILE)ar
+ NM		= $(CROSS_COMPILE)nm
+@@ -343,12 +344,16 @@ CHECK		= sparse
+ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
+ 		  -Wbitwise -Wno-return-void $(CF)
+ CFLAGS_MODULE   =
++CXXFLAGS_MODULE =
+ AFLAGS_MODULE   =
+ LDFLAGS_MODULE  =
+ CFLAGS_KERNEL	=
++CXXFLAGS_KERNEL	=
+ AFLAGS_KERNEL	=
+ CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
++CXXFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
+ 
++export CXX
+ 
+ # Use USERINCLUDE when you must reference the UAPI directories only.
+ USERINCLUDE    := \
+@@ -374,11 +379,17 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
+ 		   -Werror-implicit-function-declaration \
+ 		   -Wno-format-security \
+ 		   -fno-delete-null-pointer-checks
++KBUILD_CXXFLAGS := -fno-strict-aliasing -fno-common \
++		   -Wno-format-security \
++		   -fno-delete-null-pointer-checks \
++		   -fpermissive -w
+ KBUILD_AFLAGS_KERNEL :=
+ KBUILD_CFLAGS_KERNEL :=
++KBUILD_CXXFLAGS_KERNEL :=
+ KBUILD_AFLAGS   := -D__ASSEMBLY__
+ KBUILD_AFLAGS_MODULE  := -DMODULE
+ KBUILD_CFLAGS_MODULE  := -DMODULE
++KBUILD_CXXFLAGS_MODULE  := -DMODULE
+ KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
+ 
+ # Read KERNELRELEASE from include/config/kernel.release (if it exists)
+@@ -386,16 +397,17 @@ KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
+ KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
+ 
+ export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
+-export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
++export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS HOSTCXXFLAGS CROSS_COMPILE AS LD CC
+ export CPP AR NM STRIP OBJCOPY OBJDUMP
+ export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
+ export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
+ 
+-export KBUILD_CPPFLAGS NOSTDINC_FLAGS LINUXINCLUDE OBJCOPYFLAGS LDFLAGS
++export KBUILD_CPPFLAGS NOSTDINC_FLAGS NOSTDINCXX_FLAGS LINUXINCLUDE OBJCOPYFLAGS LDFLAGS
+ export KBUILD_CFLAGS CFLAGS_KERNEL CFLAGS_MODULE CFLAGS_GCOV
++export KBUILD_CXXFLAGS CXXFLAGS_KERNEL CXXFLAGS_MODULE CXXFLAGS_GCOV
+ export KBUILD_AFLAGS AFLAGS_KERNEL AFLAGS_MODULE
+-export KBUILD_AFLAGS_MODULE KBUILD_CFLAGS_MODULE KBUILD_LDFLAGS_MODULE
+-export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
++export KBUILD_AFLAGS_MODULE KBUILD_CFLAGS_MODULE KBUILD_CXXFLAGS_MODULE KBUILD_LDFLAGS_MODULE
++export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL KBUILD_CXXFLAGS_KERNEL
+ export KBUILD_ARFLAGS
+ 
+ # When compiling out-of-tree modules, put MODVERDIR in the module
+@@ -572,8 +584,10 @@ all: vmlinux
+ 
+ ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
+ KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,)
++KBUILD_CXXFLAGS	+= -Os $(call cxx-disable-warning,maybe-uninitialized,)
+ else
+ KBUILD_CFLAGS	+= -O2
++KBUILD_CXXFLAGS	+= -O2
+ endif
+ 
+ include $(srctree)/arch/$(SRCARCH)/Makefile
+@@ -586,23 +600,30 @@ ifdef CONFIG_READABLE_ASM
+ KBUILD_CFLAGS += $(call cc-option,-fno-reorder-blocks,) \
+                  $(call cc-option,-fno-ipa-cp-clone,) \
+                  $(call cc-option,-fno-partial-inlining)
++KBUILD_CXXFLAGS += $(call cxx-option,-fno-reorder-blocks,) \
++                   $(call cxx-option,-fno-ipa-cp-clone,) \
++                   $(call cxx-option,-fno-partial-inlining)
+ endif
+ 
+ ifneq ($(CONFIG_FRAME_WARN),0)
+ KBUILD_CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
++KBUILD_CXXFLAGS += $(call cxx-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
+ endif
+ 
+ # Force gcc to behave correct even for buggy distributions
+ ifndef CONFIG_CC_STACKPROTECTOR
+ KBUILD_CFLAGS += $(call cc-option, -fno-stack-protector)
++KBUILD_CXXFLAGS += $(call cxx-option, -fno-stack-protector)
+ endif
+ 
+ # This warning generated too much noise in a regular build.
+ # Use make W=1 to enable this warning (see scripts/Makefile.build)
+ KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
++KBUILD_CXXFLAGS += $(call cxx-disable-warning, unused-but-set-variable)
+ 
+ ifdef CONFIG_FRAME_POINTER
+ KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
++KBUILD_CXXFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+ else
+ # Some targets (ARM with Thumb2, for example), can't be built with frame
+ # pointers.  For those, we don't have FUNCTION_TRACER automatically
+@@ -611,24 +632,32 @@ else
+ # -fomit-frame-pointer with FUNCTION_TRACER.
+ ifndef CONFIG_FUNCTION_TRACER
+ KBUILD_CFLAGS	+= -fomit-frame-pointer
++KBUILD_CXXFLAGS	+= -fomit-frame-pointer
+ endif
+ endif
+ 
+ ifdef CONFIG_DEBUG_INFO
+ KBUILD_CFLAGS	+= -g
++KBUILD_CXXFLAGS	+= -g
+ KBUILD_AFLAGS	+= -gdwarf-2
+ endif
+ 
++CXXFLAGS += -fno-exceptions -fno-rtti -fcheck-new
++
+ ifdef CONFIG_DEBUG_INFO_REDUCED
+ KBUILD_CFLAGS 	+= $(call cc-option, -femit-struct-debug-baseonly) \
+ 		   $(call cc-option,-fno-var-tracking)
++KBUILD_CXXFLAGS += $(call cxx-option, -femit-struct-debug-baseonly) \
++		   $(call cxx-option,-fno-var-tracking)
+ endif
+ 
+ ifdef CONFIG_FUNCTION_TRACER
+ ifdef CONFIG_HAVE_FENTRY
+ CC_USING_FENTRY	:= $(call cc-option, -mfentry -DCC_USING_FENTRY)
++CXX_USING_FENTRY := $(call cxx-option, -mfentry -DCXX_USING_FENTRY)
+ endif
+ KBUILD_CFLAGS	+= -pg $(CC_USING_FENTRY)
++KBUILD_CXXFLAGS	+= -pg $(CXX_USING_FENTRY)
+ KBUILD_AFLAGS	+= $(CC_USING_FENTRY)
+ ifdef CONFIG_DYNAMIC_FTRACE
+ 	ifdef CONFIG_HAVE_C_RECORDMCOUNT
+@@ -641,10 +670,12 @@ endif
+ # We trigger additional mismatches with less inlining
+ ifdef CONFIG_DEBUG_SECTION_MISMATCH
+ KBUILD_CFLAGS += $(call cc-option, -fno-inline-functions-called-once)
++KBUILD_CXXFLAGS += $(call cxx-option, -fno-inline-functions-called-once)
+ endif
+ 
+ # arch Makefile may override CC so keep this after arch Makefile is included
+ NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)
++NOSTDINCXX_FLAGS += -nostdinc++ -isystem $(shell $(CXX) -print-file-name=include)
+ CHECKFLAGS     += $(NOSTDINC_FLAGS)
+ 
+ # warn about C99 declaration after statement
+@@ -655,9 +686,11 @@ KBUILD_CFLAGS += $(call cc-disable-warning, pointer-sign)
+ 
+ # disable invalid "can't wrap" optimizations for signed / pointers
+ KBUILD_CFLAGS	+= $(call cc-option,-fno-strict-overflow)
++KBUILD_CXXFLAGS	+= $(call cxx-option,-fno-strict-overflow)
+ 
+ # conserve stack if available
+ KBUILD_CFLAGS   += $(call cc-option,-fconserve-stack)
++KBUILD_CXXFLAGS   += $(call cxx-option,-fconserve-stack)
+ 
+ # use the deterministic mode of AR if available
+ KBUILD_ARFLAGS := $(call ar-option,D)
+@@ -665,12 +698,14 @@ KBUILD_ARFLAGS := $(call ar-option,D)
+ # check for 'asm goto'
+ ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC)), y)
+ 	KBUILD_CFLAGS += -DCC_HAVE_ASM_GOTO
++	KBUILD_CXXFLAGS += -DCXX_HAVE_ASM_GOTO
+ endif
+ 
+ # Add user supplied CPPFLAGS, AFLAGS and CFLAGS as the last assignments
+ KBUILD_CPPFLAGS += $(KCPPFLAGS)
+ KBUILD_AFLAGS += $(KAFLAGS)
+ KBUILD_CFLAGS += $(KCFLAGS)
++KBUILD_CXXFLAGS += $(KCXXFLAGS)
+ 
+ # Use --build-id when available.
+ LDFLAGS_BUILD_ID = $(patsubst -Wl$(comma)%,%,\
+@@ -1363,6 +1398,8 @@ endif
+ 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+ %.i: %.c prepare scripts FORCE
+ 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
++%.o: %.cc prepare scripts FORCE
++	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+ %.o: %.c prepare scripts FORCE
+ 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+ %.lst: %.c prepare scripts FORCE
+diff --git a/scripts/Kbuild.include b/scripts/Kbuild.include
+index 547e15d..7593653 100644
+--- a/scripts/Kbuild.include
++++ b/scripts/Kbuild.include
+@@ -112,39 +112,78 @@ as-instr = $(call try-run,\
+ cc-option = $(call try-run,\
+ 	$(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) $(1) -c -x c /dev/null -o "$$TMP",$(1),$(2))
+ 
++# cxx-option
++# Usage: cxxflags-y += $(call cxx-option,-march=winchip-c6,-march=i586)
++
++cxx-option = $(call try-run,\
++	$(CXX) $(KBUILD_CPPFLAGS) $(KBUILD_CXXFLAGS) $(1) -c -x c /dev/null -o "$$TMP",$(1),$(2))
++
+ # cc-option-yn
+ # Usage: flag := $(call cc-option-yn,-march=winchip-c6)
+ cc-option-yn = $(call try-run,\
+ 	$(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) $(1) -c -x c /dev/null -o "$$TMP",y,n)
+ 
++# cxx-option-yn
++# Usage: flag := $(call cxx-option-yn,-march=winchip-c6)
++cxx-option-yn = $(call try-run,\
++	$(CXX) $(KBUILD_CPPFLAGS) $(KBUILD_CXXFLAGS) $(1) -c -x c /dev/null -o "$$TMP",y,n)
++
+ # cc-option-align
+ # Prefix align with either -falign or -malign
+ cc-option-align = $(subst -functions=0,,\
+ 	$(call cc-option,-falign-functions=0,-malign-functions=0))
+ 
++# cxx-option-align
++# Prefix align with either -falign or -malign
++cxx-option-align = $(subst -functions=0,,\
++	$(call cxx-option,-falign-functions=0,-malign-functions=0))
++
+ # cc-disable-warning
+ # Usage: cflags-y += $(call cc-disable-warning,unused-but-set-variable)
+ cc-disable-warning = $(call try-run,\
+ 	$(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) -W$(strip $(1)) -c -x c /dev/null -o "$$TMP",-Wno-$(strip $(1)))
+ 
++# cxx-disable-warning
++# Usage: cxxflags-y += $(call cxx-disable-warning,unused-but-set-variable)
++cxx-disable-warning = $(call try-run,\
++	$(CXX) $(KBUILD_CPPFLAGS) $(KBUILD_CXXFLAGS) -W$(strip $(1)) -c -x c /dev/null -o "$$TMP",-Wno-$(strip $(1)))
++
+ # cc-version
+ # Usage gcc-ver := $(call cc-version)
+ cc-version = $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CC))
+ 
++# cxx-version
++# Usage gcc-ver := $(call cxx-version)
++cxx-version = $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CXX))
++
+ # cc-fullversion
+ # Usage gcc-ver := $(call cc-fullversion)
+ cc-fullversion = $(shell $(CONFIG_SHELL) \
+ 	$(srctree)/scripts/gcc-version.sh -p $(CC))
+ 
++# cxx-fullversion
++# Usage gcc-ver := $(call cxx-fullversion)
++cxx-fullversion = $(shell $(CONFIG_SHELL) \
++	$(srctree)/scripts/gcc-version.sh -p $(CXX))
++
+ # cc-ifversion
+ # Usage:  EXTRA_CFLAGS += $(call cc-ifversion, -lt, 0402, -O1)
+ cc-ifversion = $(shell [ $(call cc-version, $(CC)) $(1) $(2) ] && echo $(3))
+ 
++# cxx-ifversion
++# Usage:  EXTRA_CXXFLAGS += $(call cxx-ifversion, -lt, 0402, -O1)
++cc-ifversion = $(shell [ $(call cxx-version, $(CXX)) $(1) $(2) ] && echo $(3))
++
+ # cc-ldoption
+ # Usage: ldflags += $(call cc-ldoption, -Wl$(comma)--hash-style=both)
+ cc-ldoption = $(call try-run,\
+ 	$(CC) $(1) -nostdlib -x c /dev/null -o "$$TMP",$(1),$(2))
+ 
++# cxx-ldoption
++# Usage: ldflags += $(call cxx-ldoption, -Wl$(comma)--hash-style=both)
++cxx-ldoption = $(call try-run,\
++	$(CXX) $(1) -nostdlib -x c /dev/null -o "$$TMP",$(1),$(2))
++
+ # ld-option
+ # Usage: LDFLAGS += $(call ld-option, -X)
+ ld-option = $(call try-run,\
+diff --git a/scripts/Makefile.build b/scripts/Makefile.build
+index d5d859c..c010e2d 100644
+--- a/scripts/Makefile.build
++++ b/scripts/Makefile.build
+@@ -20,15 +20,18 @@ subdir-y :=
+ subdir-m :=
+ EXTRA_AFLAGS   :=
+ EXTRA_CFLAGS   :=
++EXTRA_CXXFLAGS   :=
+ EXTRA_CPPFLAGS :=
+ EXTRA_LDFLAGS  :=
+ asflags-y  :=
+ ccflags-y  :=
++cxxflags-y  :=
+ cppflags-y :=
+ ldflags-y  :=
+ 
+ subdir-asflags-y :=
+ subdir-ccflags-y :=
++subdir-cxxflags-y :=
+ 
+ # Read auto.conf if it exists, otherwise ignore
+ -include include/config/auto.conf
+@@ -37,6 +40,7 @@ include scripts/Kbuild.include
+ 
+ # For backward compatibility check that these variables do not change
+ save-cflags := $(CFLAGS)
++save-cxxflags := $(CXXFLAGS)
+ 
+ # The filename Kbuild has precedence over Makefile
+ kbuild-dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
+@@ -48,6 +52,9 @@ ifeq ($(KBUILD_NOPEDANTIC),)
+         ifneq ("$(save-cflags)","$(CFLAGS)")
+                 $(error CFLAGS was changed in "$(kbuild-file)". Fix it to use ccflags-y)
+         endif
++        ifneq ("$(save-cxxflags)","$(CXXFLAGS)")
++                $(error CXXFLAGS was changed in "$(kbuild-file)". Fix it to use cxxflags-y)
++        endif
+ endif
+ 
+ #
+@@ -99,6 +106,7 @@ ifeq ("$(strip $(warning))","")
+ endif
+ 
+ KBUILD_CFLAGS += $(warning)
++KBUILD_CXXFLAGS += $(warning)
+ endif
+ 
+ include scripts/Makefile.lib
+@@ -152,9 +160,13 @@ ifneq ($(KBUILD_CHECKSRC),0)
+   ifeq ($(KBUILD_CHECKSRC),2)
+     quiet_cmd_force_checksrc = CHECK   $<
+           cmd_force_checksrc = $(CHECK) $(CHECKFLAGS) $(c_flags) $< ;
++    quiet_cmd_force_checkcxxsrc = CHECK   $<
++          cmd_force_checkcxxsrc = $(CHECK) $(CHECKFLAGS) $(cxx_flags) $< ;
+   else
+       quiet_cmd_checksrc     = CHECK   $<
+             cmd_checksrc     = $(CHECK) $(CHECKFLAGS) $(c_flags) $< ;
++      quiet_cmd_checkcxxsrc  = CHECK   $<
++            cmd_checkcxxsrc  = $(CHECK) $(CHECKFLAGS) $(cxx_flags) $< ;
+   endif
+ endif
+ 
+@@ -163,7 +175,7 @@ ifdef CONFIG_DEBUG_SECTION_MISMATCH
+   cmd_secanalysis = ; scripts/mod/modpost $@
+ endif
+ 
+-# Compile C sources (.c)
++# Compile C/C++ sources (.c/.cc)
+ # ---------------------------------------------------------------------------
+ 
+ # Default is built-in, unless we know otherwise
+@@ -171,6 +183,10 @@ modkern_cflags =                                          \
+ 	$(if $(part-of-module),                           \
+ 		$(KBUILD_CFLAGS_MODULE) $(CFLAGS_MODULE), \
+ 		$(KBUILD_CFLAGS_KERNEL) $(CFLAGS_KERNEL))
++modkern_cxxflags =                                            \
++	$(if $(part-of-module),                               \
++		$(KBUILD_CXXFLAGS_MODULE) $(CXXFLAGS_MODULE), \
++		$(KBUILD_CXXFLAGS_KERNEL) $(CXXFLAGS_KERNEL))
+ quiet_modtag := $(empty)   $(empty)
+ 
+ $(real-objs-m)        : part-of-module := y
+@@ -216,23 +232,42 @@ cmd_gensymtypes =                                                           \
+      $(if $(KBUILD_PRESERVE),-p)                                            \
+      -r $(firstword $(wildcard $(2:.symtypes=.symref) /dev/null))
+ 
++cmd_gensymtypes_cxx =                                                       \
++    $(CPP) -D__GENKSYMS__ $(cxx_flags) $< |                                 \
++    $(GENKSYMS) $(if $(1), -T $(2))                                         \
++     $(patsubst y,-s _,$(CONFIG_HAVE_UNDERSCORE_SYMBOL_PREFIX))             \
++     $(if $(KBUILD_PRESERVE),-p)                                            \
++     -r $(firstword $(wildcard $(2:.symtypes=.symref) /dev/null))
++
+ quiet_cmd_cc_symtypes_c = SYM $(quiet_modtag) $@
+ cmd_cc_symtypes_c =                                                         \
+     set -e;                                                                 \
+     $(call cmd_gensymtypes,true,$@) >/dev/null;                             \
+     test -s $@ || rm -f $@
+ 
++quiet_cmd_cxx_symtypes_cc = SYM $(quiet_modtag) $@
++cmd_cxx_symtypes_cc =                                                       \
++    set -e;                                                                 \
++    $(call cmd_gensymtypes_cxx,true,$@) >/dev/null;                         \
++    test -s $@ || rm -f $@
++
+ $(obj)/%.symtypes : $(src)/%.c FORCE
+ 	$(call cmd,cc_symtypes_c)
+ 
+-# C (.c) files
+-# The C file is compiled and updated dependency information is generated.
++$(obj)/%.symtypes : $(src)/%.cc FORCE
++	$(call cmd,cxx_symtypes_cc)
++
++# C (.c) / C++ (.cc) files
++# The C/C++ file is compiled and updated dependency information is generated.
+ # (See cmd_cc_o_c + relevant part of rule_cc_o_c)
++# (See cmd_cxx_o_cc + relevant part of rule_cxx_o_cc)
+ 
+ quiet_cmd_cc_o_c = CC $(quiet_modtag)  $@
++quiet_cmd_cxx_o_cc = CXX $(quiet_modtag)  $@
+ 
+ ifndef CONFIG_MODVERSIONS
+ cmd_cc_o_c = $(CC) $(c_flags) -c -o $@ $<
++cmd_cxx_o_cc = $(CXX) $(cxx_flags) -c -o $@ $<
+ 
+ else
+ # When module versioning is enabled the following steps are executed:
+@@ -248,6 +283,7 @@ else
+ #   the actual value of the checksum generated by genksyms
+ 
+ cmd_cc_o_c = $(CC) $(c_flags) -c -o $(@D)/.tmp_$(@F) $<
++cmd_cxx_o_cc = $(CXX) $(cxx_flags) -c -o $(@D)/.tmp_$(@F) $<
+ cmd_modversions =								\
+ 	if $(OBJDUMP) -h $(@D)/.tmp_$(@F) | grep -q __ksymtab; then		\
+ 		$(call cmd_gensymtypes,$(KBUILD_SYMTYPES),$(@:.o=.symtypes))	\
+@@ -283,12 +319,22 @@ sub_cmd_record_mcount = set -e ; perl $(srctree)/scripts/recordmcount.pl "$(ARCH
+ 	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC) $(KBUILD_CFLAGS)" \
+ 	"$(LD)" "$(NM)" "$(RM)" "$(MV)" \
+ 	"$(if $(part-of-module),1,0)" "$(@)";
++sub_cmd_record_mcount_cxx = set -e ; perl $(srctree)/scripts/recordmcount.pl "$(ARCH)" \
++	"$(if $(CONFIG_CPU_BIG_ENDIAN),big,little)" \
++	"$(if $(CONFIG_64BIT),64,32)" \
++	"$(OBJDUMP)" "$(OBJCOPY)" "$(CXX) $(KBUILD_CXXFLAGS)" \
++	"$(LD)" "$(NM)" "$(RM)" "$(MV)" \
++	"$(if $(part-of-module),1,0)" "$(@)";
+ recordmcount_source := $(srctree)/scripts/recordmcount.pl
+ endif
+ cmd_record_mcount = 						\
+ 	if [ "$(findstring -pg,$(_c_flags))" = "-pg" ]; then	\
+ 		$(sub_cmd_record_mcount)			\
+ 	fi;
++cmd_record_mcount_cxx = 					\
++	if [ "$(findstring -pg,$(_cxx_flags))" = "-pg" ]; then	\
++		$(sub_cmd_record_mcount_cxx)			\
++	fi;
+ endif
+ 
+ define rule_cc_o_c
+@@ -303,11 +349,27 @@ define rule_cc_o_c
+ 	mv -f $(dot-target).tmp $(dot-target).cmd
+ endef
+ 
++define rule_cxx_o_cc
++	$(call echo-cmd,checkcxxsrc) $(cmd_checkcxxsrc)			  \
++	$(call echo-cmd,cxx_o_cc) $(cmd_cxx_o_cc);			  \
++	$(cmd_modversions)						  \
++	$(call echo-cmd,record_mcount_cxx)				  \
++	$(cmd_record_mcount_cxx)					  \
++	scripts/basic/fixdep $(depfile) $@ '$(call make-cmd,cxx_o_cc)' >  \
++	                                              $(dot-target).tmp;  \
++	rm -f $(depfile);						  \
++	mv -f $(dot-target).tmp $(dot-target).cmd
++endef
++
+ # Built-in and composite module parts
+ $(obj)/%.o: $(src)/%.c $(recordmcount_source) FORCE
+ 	$(call cmd,force_checksrc)
+ 	$(call if_changed_rule,cc_o_c)
+ 
++$(obj)/%.o: $(src)/%.cc $(recordmcount_source) FORCE
++	$(call cmd,force_checkcxxsrc)
++	$(call if_changed_rule,cxx_o_cc)
++
+ # Single-part modules are special since we need to mark them in $(MODVERDIR)
+ 
+ $(single-used-m): $(obj)/%.o: $(src)/%.c $(recordmcount_source) FORCE
+@@ -320,9 +382,17 @@ quiet_cmd_cc_lst_c = MKLST   $@
+ 		     $(CONFIG_SHELL) $(srctree)/scripts/makelst $*.o \
+ 				     System.map $(OBJDUMP) > $@
+ 
++quiet_cmd_cxx_lst_cc = MKLST   $@
++      cmd_cxx_lst_cc = $(CXX) $(cxx_flags) -g -c -o $*.o $< && \
++		       $(CONFIG_SHELL) $(srctree)/scripts/makelst $*.o \
++				     System.map $(OBJDUMP) > $@
++
+ $(obj)/%.lst: $(src)/%.c FORCE
+ 	$(call if_changed_dep,cc_lst_c)
+ 
++$(obj)/%.lst: $(src)/%.cc FORCE
++	$(call if_changed_dep,cxx_lst_cc)
++
+ # Compile assembler sources (.S)
+ # ---------------------------------------------------------------------------
+ 
+diff --git a/scripts/Makefile.lib b/scripts/Makefile.lib
+index f97869f..43efd3d 100644
+--- a/scripts/Makefile.lib
++++ b/scripts/Makefile.lib
+@@ -1,6 +1,7 @@
+ # Backward compatibility
+ asflags-y  += $(EXTRA_AFLAGS)
+ ccflags-y  += $(EXTRA_CFLAGS)
++cxxflags-y  += $(EXTRA_CXXFLAGS)
+ cppflags-y += $(EXTRA_CPPFLAGS)
+ ldflags-y  += $(EXTRA_LDFLAGS)
+ 
+@@ -8,6 +9,7 @@ ldflags-y  += $(EXTRA_LDFLAGS)
+ # flags that take effect in sub directories
+ export KBUILD_SUBDIR_ASFLAGS := $(KBUILD_SUBDIR_ASFLAGS) $(subdir-asflags-y)
+ export KBUILD_SUBDIR_CCFLAGS := $(KBUILD_SUBDIR_CCFLAGS) $(subdir-ccflags-y)
++export KBUILD_SUBDIR_CXXFLAGS := $(KBUILD_SUBDIR_CXXFLAGS) $(subdir-cxxflags-y)
+ 
+ # Figure out what we need to build from the various variables
+ # ===========================================================================
+@@ -103,7 +105,10 @@ modname_flags  = $(if $(filter 1,$(words $(modname))),\
+ 
+ orig_c_flags   = $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) $(KBUILD_SUBDIR_CCFLAGS) \
+                  $(ccflags-y) $(CFLAGS_$(basetarget).o)
++orig_cxx_flags = $(KBUILD_CPPFLAGS) $(KBUILD_CXXFLAGS) $(KBUILD_SUBDIR_CXXFLAGS) \
++                 $(cxxflags-y) $(CFLAGS_$(basetarget).o)
+ _c_flags       = $(filter-out $(CFLAGS_REMOVE_$(basetarget).o), $(orig_c_flags))
++_cxx_flags     = $(filter-out $(CXXFLAGS_REMOVE_$(basetarget).o), $(orig_cxx_flags))
+ _a_flags       = $(KBUILD_CPPFLAGS) $(KBUILD_AFLAGS) $(KBUILD_SUBDIR_ASFLAGS) \
+                  $(asflags-y) $(AFLAGS_$(basetarget).o)
+ _cpp_flags     = $(KBUILD_CPPFLAGS) $(cppflags-y) $(CPPFLAGS_$(@F))
+@@ -117,6 +122,9 @@ ifeq ($(CONFIG_GCOV_KERNEL),y)
+ _c_flags += $(if $(patsubst n%,, \
+ 		$(GCOV_PROFILE_$(basetarget).o)$(GCOV_PROFILE)$(CONFIG_GCOV_PROFILE_ALL)), \
+ 		$(CFLAGS_GCOV))
++_cxx_flags += $(if $(patsubst n%,, \
++		$(GCOV_PROFILE_$(basetarget).o)$(GCOV_PROFILE)$(CONFIG_GCOV_PROFILE_ALL)), \
++		$(CXXFLAGS_GCOV))
+ endif
+ 
+ # If building the kernel in a separate objtree expand all occurrences
+@@ -124,6 +132,7 @@ endif
+ 
+ ifeq ($(KBUILD_SRC),)
+ __c_flags	= $(_c_flags)
++__cxx_flags	= $(_cxx_flags)
+ __a_flags	= $(_a_flags)
+ __cpp_flags     = $(_cpp_flags)
+ else
+@@ -133,6 +142,7 @@ else
+ #   and locates generated .h files
+ # FIXME: Replace both with specific CFLAGS* statements in the makefiles
+ __c_flags	= $(call addtree,-I$(obj)) $(call flags,_c_flags)
++__cxx_flags	= $(call addtree,-I$(obj)) $(call flags,_cxx_flags)
+ __a_flags	=                          $(call flags,_a_flags)
+ __cpp_flags     =                          $(call flags,_cpp_flags)
+ endif
+@@ -141,6 +151,10 @@ c_flags        = -Wp,-MD,$(depfile) $(NOSTDINC_FLAGS) $(LINUXINCLUDE)     \
+ 		 $(__c_flags) $(modkern_cflags)                           \
+ 		 -D"KBUILD_STR(s)=\#s" $(basename_flags) $(modname_flags)
+ 
++cxx_flags      = -Wp,-MD,$(depfile) $(NOSTDINCXX_FLAGS) $(LINUXINCLUDE)   \
++		 $(__cxx_flags) $(modkern_cxxflags)                       \
++		 -D"KBUILD_STR(s)=\#s" $(basename_flags) $(modname_flags)
++
+ a_flags        = -Wp,-MD,$(depfile) $(NOSTDINC_FLAGS) $(LINUXINCLUDE)     \
+ 		 $(__a_flags) $(modkern_aflags)
+ 
+diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
+index 8dcdca2..0816dbd 100644
+--- a/scripts/Makefile.modpost
++++ b/scripts/Makefile.modpost
+@@ -107,6 +107,10 @@ quiet_cmd_cc_o_c = CC      $@
+       cmd_cc_o_c = $(CC) $(c_flags) $(KBUILD_CFLAGS_MODULE) $(CFLAGS_MODULE) \
+ 		   -c -o $@ $<
+ 
++quiet_cmd_cxx_o_cc = CXX     $@
++      cmd_cxx_o_cc = $(CXX) $(cxx_flags) $(KBUILD_CXXFLAGS_MODULE) $(CXXFLAGS_MODULE) \
++		   -c -o $@ $<
++
+ $(modules:.ko=.mod.o): %.mod.o: %.mod.c FORCE
+ 	$(call if_changed_dep,cc_o_c)
+ 
