@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index 001188c..2ca4ab9 100644
+index 001188c..142154c 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -327,6 +327,7 @@ include $(srctree)/scripts/Kbuild.include
@@ -109,7 +109,7 @@ index 001188c..2ca4ab9 100644
  else
  # Some targets (ARM with Thumb2, for example), can't be built with frame
  # pointers.  For those, we don't have FUNCTION_TRACER automatically
-@@ -611,24 +632,32 @@ else
+@@ -611,24 +632,36 @@ else
  # -fomit-frame-pointer with FUNCTION_TRACER.
  ifndef CONFIG_FUNCTION_TRACER
  KBUILD_CFLAGS	+= -fomit-frame-pointer
@@ -123,7 +123,11 @@ index 001188c..2ca4ab9 100644
  KBUILD_AFLAGS	+= -gdwarf-2
  endif
  
-+CXXFLAGS += -fno-exceptions -fno-rtti -fcheck-new
++ifdef CONFIG_ENABLE_CXX11
++KBUILD_CXXFLAGS += -std=c++11
++endif
++
++KBUILD_CXXFLAGS += -fno-exceptions -fno-rtti -fcheck-new
 +
  ifdef CONFIG_DEBUG_INFO_REDUCED
  KBUILD_CFLAGS 	+= $(call cc-option, -femit-struct-debug-baseonly) \
@@ -142,7 +146,7 @@ index 001188c..2ca4ab9 100644
  KBUILD_AFLAGS	+= $(CC_USING_FENTRY)
  ifdef CONFIG_DYNAMIC_FTRACE
  	ifdef CONFIG_HAVE_C_RECORDMCOUNT
-@@ -641,10 +670,12 @@ endif
+@@ -641,10 +674,12 @@ endif
  # We trigger additional mismatches with less inlining
  ifdef CONFIG_DEBUG_SECTION_MISMATCH
  KBUILD_CFLAGS += $(call cc-option, -fno-inline-functions-called-once)
@@ -155,7 +159,7 @@ index 001188c..2ca4ab9 100644
  CHECKFLAGS     += $(NOSTDINC_FLAGS)
  
  # warn about C99 declaration after statement
-@@ -655,9 +686,11 @@ KBUILD_CFLAGS += $(call cc-disable-warning, pointer-sign)
+@@ -655,9 +690,11 @@ KBUILD_CFLAGS += $(call cc-disable-warning, pointer-sign)
  
  # disable invalid "can't wrap" optimizations for signed / pointers
  KBUILD_CFLAGS	+= $(call cc-option,-fno-strict-overflow)
@@ -167,7 +171,7 @@ index 001188c..2ca4ab9 100644
  
  # use the deterministic mode of AR if available
  KBUILD_ARFLAGS := $(call ar-option,D)
-@@ -665,12 +698,14 @@ KBUILD_ARFLAGS := $(call ar-option,D)
+@@ -665,12 +702,14 @@ KBUILD_ARFLAGS := $(call ar-option,D)
  # check for 'asm goto'
  ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC)), y)
  	KBUILD_CFLAGS += -DCC_HAVE_ASM_GOTO
@@ -182,7 +186,7 @@ index 001188c..2ca4ab9 100644
  
  # Use --build-id when available.
  LDFLAGS_BUILD_ID = $(patsubst -Wl$(comma)%,%,\
-@@ -1363,6 +1398,8 @@ endif
+@@ -1363,6 +1402,8 @@ endif
  	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
  %.i: %.c prepare scripts FORCE
  	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
