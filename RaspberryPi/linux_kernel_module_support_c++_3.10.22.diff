@@ -232,6 +232,19 @@ index 24545cd..4aae810 100644
  #endif
  
  #define __deprecated			__attribute__((deprecated))
+diff --git a/include/linux/printk.h b/include/linux/printk.h
+index 22c7052..a3ef3e9 100644
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -116,7 +116,7 @@ asmlinkage __printf(1, 0)
+ int vprintk(const char *fmt, va_list args);
+ 
+ asmlinkage __printf(5, 6) __cold
+-asmlinkage int printk_emit(int facility, int level,
++int printk_emit(int facility, int level,
+ 			   const char *dict, size_t dictlen,
+ 			   const char *fmt, ...);
+ 
 diff --git a/include/linux/stddef.h b/include/linux/stddef.h
 index f4aec0e..bc8a24b 100644
 --- a/include/linux/stddef.h
