@@ -195,6 +195,43 @@ index 001188c..aa272b0 100644
  %.o: %.c prepare scripts FORCE
  	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
  %.lst: %.c prepare scripts FORCE
+diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+index 24545cd..4aae810 100644
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -50,14 +50,26 @@
+  */
+ #if !defined(CONFIG_ARCH_SUPPORTS_OPTIMIZED_INLINING) || \
+     !defined(CONFIG_OPTIMIZE_INLINING) || (__GNUC__ < 4)
+-# define inline		inline		__attribute__((always_inline)) notrace
+-# define __inline__	__inline__	__attribute__((always_inline)) notrace
+-# define __inline	__inline	__attribute__((always_inline)) notrace
++# ifndef __cplusplus
++#   define inline	inline		__attribute__((always_inline)) notrace
++#   define __inline__	__inline__	__attribute__((always_inline)) notrace
++#   define __inline	__inline	__attribute__((always_inline)) notrace
++# else
++#   define inline	inline		__attribute__((always_inline))
++#   define __inline__	__inline__	__attribute__((always_inline))
++#   define __inline	__inline	__attribute__((always_inline))
++# endif
+ #else
+ /* A lot of inline functions can cause havoc with function tracing */
+-# define inline		inline		notrace
+-# define __inline__	__inline__	notrace
+-# define __inline	__inline	notrace
++# ifndef __cplusplus
++#   define inline	inline		notrace
++#   define __inline__	__inline__	notrace
++#   define __inline	__inline	notrace
++# else
++#   define inline	inline
++#   define __inline__	__inline__
++#   define __inline	__inline
++# endif
+ #endif
+ 
+ #define __deprecated			__attribute__((deprecated))
 diff --git a/include/linux/stddef.h b/include/linux/stddef.h
 index f4aec0e..bc8a24b 100644
 --- a/include/linux/stddef.h
