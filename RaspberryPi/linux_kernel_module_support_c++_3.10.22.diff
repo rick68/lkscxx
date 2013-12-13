@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index 001188c..142154c 100644
+index 001188c..aa272b0 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -327,6 +327,7 @@ include $(srctree)/scripts/Kbuild.include
@@ -175,7 +175,7 @@ index 001188c..142154c 100644
  # check for 'asm goto'
  ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC)), y)
  	KBUILD_CFLAGS += -DCC_HAVE_ASM_GOTO
-+	KBUILD_CXXFLAGS += -DCXX_HAVE_ASM_GOTO
++	KBUILD_CXXFLAGS += -DC_HAVE_ASM_GOTO
  endif
  
  # Add user supplied CPPFLAGS, AFLAGS and CFLAGS as the last assignments
@@ -195,6 +195,37 @@ index 001188c..142154c 100644
  %.o: %.c prepare scripts FORCE
  	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
  %.lst: %.c prepare scripts FORCE
+diff --git a/include/linux/stddef.h b/include/linux/stddef.h
+index f4aec0e..bc8a24b 100644
+--- a/include/linux/stddef.h
++++ b/include/linux/stddef.h
+@@ -7,10 +7,12 @@
+ #undef NULL
+ #define NULL ((void *)0)
+ 
++#ifndef __cplusplus
+ enum {
+ 	false	= 0,
+ 	true	= 1
+ };
++#endif
+ 
+ #undef offsetof
+ #ifdef __compiler_offsetof
+diff --git a/include/linux/types.h b/include/linux/types.h
+index 4d118ba..e8959e1 100644
+--- a/include/linux/types.h
++++ b/include/linux/types.h
+@@ -26,7 +26,9 @@ typedef __kernel_timer_t	timer_t;
+ typedef __kernel_clockid_t	clockid_t;
+ typedef __kernel_mqd_t		mqd_t;
+ 
++#ifndef __cplusplus
+ typedef _Bool			bool;
++#endif
+ 
+ typedef __kernel_uid32_t	uid_t;
+ typedef __kernel_gid32_t	gid_t;
 diff --git a/scripts/Kbuild.include b/scripts/Kbuild.include
 index 547e15d..7593653 100644
 --- a/scripts/Kbuild.include
